@@ -22,21 +22,6 @@ impl FastaData {
         }
     }
 
-    fn is_dna(&self) -> bool {
-        for section in &self.sections {
-            for c in section.sequence.chars() {
-                match c {
-                    'T' | 't' => return true,
-                    'U' | 'u' => return false,
-                    _ => (),
-                }
-            }
-        }
-        // default to assuming it is DNA, which might as well be true if there
-        // are no T's or U's in any of the sequences.
-        true
-    }
-
     pub fn read(filepath: &str) -> io::Result<FastaData> {
         if !filepath.ends_with(".fasta") && !filepath.ends_with(".fa") {
             panic!("Invalid fasta file '{}'.", filepath)
