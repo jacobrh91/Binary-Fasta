@@ -2,7 +2,7 @@ use itertools::Itertools;
 
 use crate::fasta_section::FastaSection;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct BinaryFastaSection {
     pub descriptor: String,
     // Sequence of bytes holding the 2-bit nucleotide encoding
@@ -14,11 +14,11 @@ pub struct BinaryFastaSection {
 }
 
 impl BinaryFastaSection {
-    pub fn get_descriptor_byte_length(&self) -> u8 {
+    fn get_descriptor_byte_length(&self) -> u8 {
         u8::try_from(self.descriptor.len()).expect("Descriptor is too long.")
     }
 
-    pub fn new(fasta_section: &FastaSection) -> Self {
+    pub fn from_fasta(fasta_section: &FastaSection) -> Self {
         // The sign bit signals whether the source data was DNA (+) or RNA (-)
         let sign = if fasta_section.is_dna() { 1 } else { -1 };
         let sequence_length = sign
@@ -121,7 +121,7 @@ impl BinaryFastaSection {
 
 #[cfg(test)]
 mod tests {
-    use super::BinaryFastaSection;
+    use super::*;
 
     #[test]
     fn test_ascii_to_binary_translations() {
@@ -167,5 +167,22 @@ mod tests {
                 0b1111_1111
             )
         );
+    }
+
+    #[test]
+    fn test_from_fasta_dna() {
+        let descr1 = "test 1";
+
+        let fasta_section = FastaSection {
+            descriptor: String::from(descr1),
+            sequence: String::from("TtTtGgGgCcAaAaCc"),
+        };
+
+        let expected = BinaryFastaSection {
+            descriptor: String::from(descr1),
+            sequence: vec![0b1111_1111, 0b1010_1010, 0b0101_0000, 0b0000_0101],
+            sequence_length: 16i32,
+        };
+        assert_eq!(BinaryFastaSection::from_fasta(&fasta_section), expected);
     }
 }

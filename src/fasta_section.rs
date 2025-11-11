@@ -2,7 +2,7 @@ use itertools::Itertools;
 
 use crate::binary_fasta_section::BinaryFastaSection;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct FastaSection {
     pub descriptor: String,
     pub sequence: String,
@@ -132,5 +132,33 @@ impl FastaSection {
             }
         }
         result
+    }
+}
+
+#[cfg(test)]
+mod test {
+
+    #[test]
+    fn translate_from_binary_dna() {
+        let bytes = vec![0b0000_0000, 0b0101_0101, 0b1010_1010, 0b1111_1111];
+        let length = 16i32;
+
+        let expected = String::from("AAAACCCCGGGGTTTT");
+        assert_eq!(
+            super::FastaSection::translate_from_binary(&bytes, length),
+            expected
+        );
+    }
+
+    #[test]
+    fn translate_from_binary_rna() {
+        let bytes = vec![0b0000_0000, 0b0101_0101, 0b1010_1010, 0b1111_1111];
+        let length = -16i32; // The value is negative because this sequence is RNA.
+
+        let expected = String::from("AAAACCCCGGGGUUUU");
+        assert_eq!(
+            super::FastaSection::translate_from_binary(&bytes, length),
+            expected
+        );
     }
 }

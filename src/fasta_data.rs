@@ -5,7 +5,7 @@ use std::{
 
 use crate::{binary_fasta_data::BinaryFastaData, fasta_section::FastaSection};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct FastaData {
     pub sections: Vec<FastaSection>,
 }
@@ -22,7 +22,7 @@ impl FastaData {
         }
     }
 
-    pub fn is_dna(&self) -> bool {
+    fn is_dna(&self) -> bool {
         for section in &self.sections {
             for c in section.sequence.chars() {
                 match c {
@@ -84,5 +84,65 @@ impl FastaData {
         }
         writer.flush()?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::binary_fasta_data::BinaryFastaData;
+    use crate::binary_fasta_section::BinaryFastaSection;
+
+    use super::*;
+
+    #[test]
+    fn test_is_dna() {
+        let dna_section = FastaSection {
+            descriptor: String::from("DNA"),
+            sequence: String::from("AAAACCCCGGGGTTTT"),
+        };
+        let rna_section = FastaSection {
+            descriptor: String::from("RNA"),
+            sequence: String::from("AAAACCCCGGGGUUUU"),
+        };
+
+        assert!(dna_section.is_dna());
+        assert!(!rna_section.is_dna());
+    }
+
+    #[test]
+    fn test_from_fasta_rna() {
+        let descr1 = "test 1";
+        let descr2 = "test 2";
+
+        let basta_data = BinaryFastaData {
+            sections: vec![
+                BinaryFastaSection {
+                    descriptor: String::from(descr1),
+                    sequence: vec![0b0000_0000, 0b0101_0101, 0b1010_1010, 0b1111_1111],
+                    sequence_length: -16i32, // Length is negative because sign bit signals DNA (+) or RNA (-)
+                },
+                BinaryFastaSection {
+                    descriptor: String::from(descr2),
+                    sequence: vec![0b0001_1011, 0b0110_0000],
+                    sequence_length: -6i32, // Length is negative because sign bit signals DNA (+) or RNA (-)
+                },
+            ],
+        };
+
+        let fasta_data = FastaData::from_basta(basta_data);
+
+        let expected = FastaData {
+            sections: vec![
+                FastaSection {
+                    descriptor: String::from(descr1),
+                    sequence: String::from("AAAACCCCGGGGUUUU"),
+                },
+                FastaSection {
+                    descriptor: String::from(descr2),
+                    sequence: String::from("ACGUCG"),
+                },
+            ],
+        };
+        assert_eq!(fasta_data, expected);
     }
 }
