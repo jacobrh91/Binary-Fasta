@@ -2,34 +2,44 @@ mod binary_fasta_data;
 mod binary_fasta_section;
 mod fasta_data;
 mod fasta_section;
+mod nucleotide_file;
+mod parser;
 
-use std::{env, io};
+use std::{error::Error, path::Path};
 
-use crate::{binary_fasta_data::BinaryFastaData, fasta_data::FastaData};
+use clap::Parser;
+use parser::Args;
 
-fn main() -> io::Result<()> {
-    let args: Vec<String> = env::args().collect();
+use crate::{
+    binary_fasta_data::BinaryFastaData, fasta_data::FastaData, nucleotide_file::NucleotideFile,
+};
 
-    if args.len() < 2 {
-        println!("Provide the path to a FASTA file");
-    } else {
-        let fasta_file = FastaData::read(&args[1])?;
-        println!("Sections: {:?}", fasta_file);
+fn main() -> Result<(), Box<dyn Error>> {
+    let cli = Args::parse();
 
-        let basta_data = BinaryFastaData::from_fasta(fasta_file);
-        println!("Binary: {:?}", basta_data);
-
-        let basta_file_path = "data/test_small_dna.basta";
-        basta_data.write(basta_file_path)?;
-
-        let basta_data = BinaryFastaData::read(basta_file_path)?;
-        println!("Out binary: {:?}", basta_data);
-
-        let fasta_data = FastaData::from_basta(basta_data);
-        println!("Sections: {:?}", fasta_data);
-
-        fasta_data.write("data/test_small_dna.fasta")?;
+    let input_path = Path::new(&cli.input);
+    if !input_path.exists() {
+        return Err(format!("File '{}' not found.", input_path.to_str().unwrap_or("")).into());
     }
+    let input_file: NucleotideFile = NucleotideFile::new(input_path)?;
 
+    let output_file_option: Option<NucleotideFile> = cli
+        .output
+        .map(|output_str| NucleotideFile::new(Path::new(&output_str)))
+        .transpose()?;
+    let output_file: NucleotideFile = output_file_option.unwrap_or(input_file.switch_extension());
+
+    match input_file.format {
+        nucleotide_file::FileFormat::Fasta => {
+            let fasta = FastaData::read(&input_file.file_path)?;
+            let binary = BinaryFastaData::from_fasta(fasta);
+            binary.write(&output_file.file_path)?;
+        }
+        nucleotide_file::FileFormat::Basta => {
+            let basta = BinaryFastaData::read(&input_file.file_path)?;
+            let fasta = FastaData::from_basta(basta);
+            fasta.write(&output_file.file_path)?;
+        }
+    }
     Ok(())
 }

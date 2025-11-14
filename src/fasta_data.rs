@@ -1,6 +1,7 @@
 use std::{
     fs::File,
     io::{self, BufRead, BufWriter, Write},
+    path::Path,
 };
 
 use crate::{binary_fasta_data::BinaryFastaData, fasta_section::FastaSection};
@@ -22,11 +23,8 @@ impl FastaData {
         }
     }
 
-    pub fn read(filepath: &str) -> io::Result<FastaData> {
-        if !filepath.ends_with(".fasta") && !filepath.ends_with(".fa") {
-            panic!("Invalid fasta file '{}'.", filepath)
-        }
-        let file = File::open(filepath)?;
+    pub fn read(file_path: &Path) -> io::Result<FastaData> {
+        let file = File::open(file_path)?;
         let reader = io::BufReader::new(file);
 
         let mut fasta_sections: Vec<FastaSection> = Vec::new();
@@ -57,7 +55,7 @@ impl FastaData {
         })
     }
 
-    pub fn write(&self, file_path: &str) -> io::Result<()> {
+    pub fn write(&self, file_path: &Path) -> io::Result<()> {
         let section_bytes: Vec<Vec<u8>> =
             self.sections.iter().map(|x| x.convert_to_bytes()).collect();
 

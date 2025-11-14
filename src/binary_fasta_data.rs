@@ -1,5 +1,6 @@
 use std::fs::{self, File};
 use std::io::{self, prelude::*, BufWriter};
+use std::path::Path;
 
 use crate::binary_fasta_section::BinaryFastaSection;
 use crate::fasta_data::FastaData;
@@ -21,7 +22,7 @@ impl BinaryFastaData {
         }
     }
 
-    pub fn write(&self, file_path: &str) -> io::Result<()> {
+    pub fn write(&self, file_path: &Path) -> io::Result<()> {
         let bytes = self.sections.iter().flat_map(|x| x.convert_to_bytes());
 
         let file = File::create(file_path)?;
@@ -33,7 +34,7 @@ impl BinaryFastaData {
         Ok(())
     }
 
-    pub fn read(file_path: &str) -> io::Result<BinaryFastaData> {
+    pub fn read(file_path: &Path) -> io::Result<BinaryFastaData> {
         let file = fs::read(file_path)?;
 
         let mut iter = file.into_iter().peekable();
