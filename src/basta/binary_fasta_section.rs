@@ -1,6 +1,6 @@
 use itertools::Itertools;
 
-use crate::{errors::BinaryFastaError, fasta_section::FastaSection};
+use crate::{errors::BinaryFastaError, fasta::fasta_section::FastaSection};
 
 #[derive(Debug, PartialEq)]
 pub struct BinaryFastaSection {

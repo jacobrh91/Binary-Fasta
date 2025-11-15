@@ -5,7 +5,8 @@ use std::{
 };
 
 use crate::{
-    binary_fasta_section::BinaryFastaSection, errors::BinaryFastaError, fasta_section::FastaSection,
+    basta::binary_fasta_section::BinaryFastaSection, errors::BinaryFastaError,
+    fasta::fasta_section::FastaSection,
 };
 
 pub fn from_basta<I>(
@@ -80,8 +81,6 @@ where
 
 #[cfg(test)]
 mod test {
-    use crate::{binary_fasta_section::BinaryFastaSection, fasta_data};
-
     use super::*;
 
     #[test]
@@ -118,9 +117,7 @@ mod test {
         ]
         .into_iter();
 
-        let fasta_vec: Vec<_> = fasta_data::from_basta(basta_sections)
-            .map(Result::unwrap)
-            .collect();
+        let fasta_vec: Vec<_> = from_basta(basta_sections).map(Result::unwrap).collect();
 
         let expected = vec![
             FastaSection {

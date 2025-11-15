@@ -2,9 +2,9 @@ use std::fs::File;
 use std::io::{self, prelude::*, BufWriter};
 use std::path::Path;
 
-use crate::binary_fasta_section::BinaryFastaSection;
+use crate::basta::binary_fasta_section::BinaryFastaSection;
 use crate::errors::BinaryFastaError;
-use crate::fasta_section::FastaSection;
+use crate::fasta::fasta_section::FastaSection;
 
 pub fn from_fasta<I>(
     fasta_data: I,
@@ -56,7 +56,7 @@ pub fn read(
 
 #[cfg(test)]
 mod tests {
-    use crate::{binary_fasta_data, fasta_section::FastaSection};
+    use crate::basta::binary_fasta_data;
 
     use super::*;
 

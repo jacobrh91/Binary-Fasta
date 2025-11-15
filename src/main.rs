@@ -1,17 +1,19 @@
-mod binary_fasta_data;
-mod binary_fasta_section;
-mod errors;
-mod fasta_data;
-mod fasta_section;
-mod nucleotide_file;
+pub mod errors;
+pub mod nucleotide_file;
 mod parser;
+
+pub mod basta;
+pub mod fasta;
 
 use std::{io, path::Path};
 
 use clap::Parser;
 use parser::Args;
 
-use crate::{errors::BinaryFastaError, nucleotide_file::NucleotideFile};
+use crate::{
+    basta::binary_fasta_data, errors::BinaryFastaError, fasta::fasta_data,
+    nucleotide_file::NucleotideFile,
+};
 
 fn main() -> Result<(), BinaryFastaError> {
     let cli = Args::parse();

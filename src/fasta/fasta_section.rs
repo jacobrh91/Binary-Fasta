@@ -1,6 +1,6 @@
 use itertools::Itertools;
 
-use crate::binary_fasta_section::BinaryFastaSection;
+use crate::basta::binary_fasta_section::BinaryFastaSection;
 
 #[derive(Debug, PartialEq)]
 pub struct FastaSection {
@@ -138,6 +138,7 @@ impl FastaSection {
 
 #[cfg(test)]
 mod test {
+    use crate::fasta::fasta_section::FastaSection;
 
     #[test]
     fn translate_from_binary_dna() {
@@ -146,7 +147,7 @@ mod test {
 
         let expected = String::from("AAAACCCCGGGGTTTT");
         assert_eq!(
-            super::FastaSection::translate_from_binary(&bytes, length),
+            FastaSection::translate_from_binary(&bytes, length),
             expected
         );
     }
@@ -158,7 +159,7 @@ mod test {
 
         let expected = String::from("AAAACCCCGGGGUUUU");
         assert_eq!(
-            super::FastaSection::translate_from_binary(&bytes, length),
+            FastaSection::translate_from_binary(&bytes, length),
             expected
         );
     }
