@@ -3,6 +3,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use crate::errors::BinaryFastaError;
+
 #[derive(PartialEq, Debug)]
 pub enum FileFormat {
     Fasta,
@@ -17,19 +19,24 @@ pub struct NucleotideFile {
 }
 
 impl NucleotideFile {
-    pub fn new(file_path: &Path) -> Result<NucleotideFile, String> {
-        let path_str = file_path.to_str().expect("Empty path found.");
-        let error_message = format!("Expected a FASTA or BASTA file, but found '{}'.", path_str);
-
+    pub fn new(file_path: &Path) -> Result<NucleotideFile, BinaryFastaError> {
         let ext = match file_path.extension().and_then(OsStr::to_str) {
             Some(ext) => ext,
-            None => return Err(error_message),
+            None => {
+                return Err(BinaryFastaError::InvalidFileExtension {
+                    path: file_path.to_path_buf(),
+                })
+            }
         };
 
         let (format, long_extension) = match ext {
             "fasta" | "fa" => (FileFormat::Fasta, ext.len() > 2),
             "basta" | "ba" => (FileFormat::Basta, ext.len() > 2),
-            _ => return Err(error_message),
+            _ => {
+                return Err(BinaryFastaError::InvalidFileExtension {
+                    path: file_path.to_path_buf(),
+                })
+            }
         };
 
         Ok(NucleotideFile {
@@ -105,8 +112,8 @@ mod test {
         };
 
         assert_eq!(
-            NucleotideFile::new(Path::new("test.fasta")).unwrap(),
-            expected
+            expected,
+            NucleotideFile::new(Path::new("test.fasta")).unwrap()
         );
     }
 
@@ -118,7 +125,7 @@ mod test {
             long_extension: false,
         };
 
-        assert_eq!(NucleotideFile::new(Path::new("test.fa")).unwrap(), expected);
+        assert_eq!(expected, NucleotideFile::new(Path::new("test.fa")).unwrap());
     }
 
     #[test]
@@ -130,8 +137,8 @@ mod test {
         };
 
         assert_eq!(
-            NucleotideFile::new(Path::new("test.basta")).unwrap(),
-            expected
+            expected,
+            NucleotideFile::new(Path::new("test.basta")).unwrap()
         );
     }
 
@@ -143,7 +150,7 @@ mod test {
             long_extension: false,
         };
 
-        assert_eq!(NucleotideFile::new(Path::new("test.ba")).unwrap(), expected);
+        assert_eq!(expected, NucleotideFile::new(Path::new("test.ba")).unwrap());
     }
 
     #[test]

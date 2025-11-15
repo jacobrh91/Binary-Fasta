@@ -1,41 +1,37 @@
 mod binary_fasta_data;
 mod binary_fasta_section;
+mod errors;
 mod fasta_data;
 mod fasta_section;
 mod nucleotide_file;
 mod parser;
 
-use std::{error::Error, path::Path};
+use std::{io, path::Path};
 
 use clap::Parser;
 use parser::Args;
 
-use crate::nucleotide_file::NucleotideFile;
+use crate::{errors::BinaryFastaError, nucleotide_file::NucleotideFile};
 
-// fn main() {
-//     let a = binary_fasta_data::read(Path::new("data/test_small_dna.basta")).unwrap();
-//     // println!("len {}", a.collect::<Vec<_>>().len());
-//     let b: Vec<binary_fasta_section::BinaryFastaSection> =
-//         a.map(|x| x.unwrap()).collect::<Vec<_>>();
-//     for i in b {
-//         println!("{:?}", i)
-//     }
-// }
-
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> Result<(), BinaryFastaError> {
     let cli = Args::parse();
 
     let input_path = Path::new(&cli.input);
     if !input_path.exists() {
-        return Err(format!("File '{}' not found.", input_path.to_str().unwrap_or("")).into());
+        return Err(BinaryFastaError::Io(io::Error::new(
+            io::ErrorKind::NotFound,
+            format!("File '{}' not found.", input_path.display()),
+        )));
     }
+
     let input_file: NucleotideFile = NucleotideFile::new(input_path)?;
 
     let output_file_option: Option<NucleotideFile> = cli
         .output
         .map(|output_str| NucleotideFile::new(Path::new(&output_str)))
         .transpose()?;
-    let output_file: NucleotideFile = output_file_option.unwrap_or(input_file.switch_extension());
+    let output_file: NucleotideFile =
+        output_file_option.unwrap_or_else(|| input_file.switch_extension());
 
     match input_file.format {
         nucleotide_file::FileFormat::Fasta => {

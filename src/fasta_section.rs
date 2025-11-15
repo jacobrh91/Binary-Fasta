@@ -64,12 +64,13 @@ impl FastaSection {
             ];
             let nucleotide_chars = nucleotide_bits.map(|x| Self::decode_bits(x, is_dna));
 
+            let nucleotides_remaining = positive_length - chars_stored;
+
             // If storing the final bit, and it is not full with sequence data.
-            if positive_length - chars_stored < 4 {
-                let nucleotides_in_last_byte: usize = (positive_length % 4).try_into().unwrap();
+            if nucleotides_remaining < 4 {
+                let nucleotides_in_last_byte = (positive_length % 4) as usize;
                 result.extend(nucleotide_chars.iter().take(nucleotides_in_last_byte));
             } else {
-                // Store all 4 nucleotides to the result list
                 result.extend(nucleotide_chars);
                 chars_stored += 4;
             }

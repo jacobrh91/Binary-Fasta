@@ -3,18 +3,24 @@ use std::io::{self, prelude::*, BufWriter};
 use std::path::Path;
 
 use crate::binary_fasta_section::BinaryFastaSection;
+use crate::errors::BinaryFastaError;
 use crate::fasta_section::FastaSection;
 
-pub fn from_fasta<I>(fasta_data: I) -> impl Iterator<Item = io::Result<BinaryFastaSection>>
+pub fn from_fasta<I>(
+    fasta_data: I,
+) -> impl Iterator<Item = Result<BinaryFastaSection, BinaryFastaError>>
 where
-    I: Iterator<Item = io::Result<FastaSection>>,
+    I: Iterator<Item = Result<FastaSection, BinaryFastaError>>,
 {
-    fasta_data.map(|res| res.map(BinaryFastaSection::from_fasta))
+    fasta_data.map(|res| match res {
+        Ok(section) => Ok(BinaryFastaSection::from_fasta(section)),
+        Err(_) => Err(BinaryFastaError::UnexpectedEof),
+    })
 }
 
-pub fn write<I>(iter: I, file_path: &Path) -> io::Result<()>
+pub fn write<I>(iter: I, file_path: &Path) -> Result<(), BinaryFastaError>
 where
-    I: Iterator<Item = io::Result<BinaryFastaSection>>,
+    I: Iterator<Item = Result<BinaryFastaSection, BinaryFastaError>>,
 {
     let mut writer = BufWriter::new(File::create(file_path)?);
 
@@ -22,10 +28,13 @@ where
         writer.write_all(&section?.convert_to_bytes())?;
     }
 
-    writer.flush()
+    writer.flush()?;
+    Ok(())
 }
 
-pub fn read(file_path: &Path) -> io::Result<impl Iterator<Item = io::Result<BinaryFastaSection>>> {
+pub fn read(
+    file_path: &Path,
+) -> Result<impl Iterator<Item = Result<BinaryFastaSection, BinaryFastaError>>, BinaryFastaError> {
     let file = File::open(file_path)?;
     let reader = io::BufReader::new(file);
 
@@ -38,7 +47,7 @@ pub fn read(file_path: &Path) -> io::Result<impl Iterator<Item = io::Result<Bina
         if bytes_iter.peek().is_some() {
             // Consume exactly one section from the byte stream
             let section = BinaryFastaSection::from_bytes(&mut bytes_iter);
-            Some(Ok(section))
+            Some(section)
         } else {
             None
         }

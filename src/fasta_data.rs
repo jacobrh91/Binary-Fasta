@@ -4,16 +4,22 @@ use std::{
     path::Path,
 };
 
-use crate::{binary_fasta_section::BinaryFastaSection, fasta_section::FastaSection};
+use crate::{
+    binary_fasta_section::BinaryFastaSection, errors::BinaryFastaError, fasta_section::FastaSection,
+};
 
-pub fn from_basta<I>(binary_fasta_data: I) -> impl Iterator<Item = io::Result<FastaSection>>
+pub fn from_basta<I>(
+    binary_fasta_data: I,
+) -> impl Iterator<Item = Result<FastaSection, BinaryFastaError>>
 where
-    I: Iterator<Item = io::Result<BinaryFastaSection>>,
+    I: Iterator<Item = Result<BinaryFastaSection, BinaryFastaError>>,
 {
     binary_fasta_data.map(|res| res.map(FastaSection::from_basta))
 }
 
-pub fn read(file_path: &Path) -> io::Result<impl Iterator<Item = io::Result<FastaSection>>> {
+pub fn read(
+    file_path: &Path,
+) -> Result<impl Iterator<Item = Result<FastaSection, BinaryFastaError>>, BinaryFastaError> {
     let file = File::open(file_path)?;
     let reader = io::BufReader::new(file);
     let mut lines = reader.lines();
@@ -42,7 +48,10 @@ pub fn read(file_path: &Path) -> io::Result<impl Iterator<Item = io::Result<Fast
                         data.push_str(&line);
                     }
                 }
-                Err(e) => return Some(Err(e)),
+                Err(e) => {
+                    // Map io::Error into BinaryFastaError
+                    return Some(Err(e.into()));
+                }
             }
         }
 
@@ -51,9 +60,9 @@ pub fn read(file_path: &Path) -> io::Result<impl Iterator<Item = io::Result<Fast
     }))
 }
 
-pub fn write<I>(iter: I, file_path: &Path) -> io::Result<()>
+pub fn write<I>(iter: I, file_path: &Path) -> Result<(), BinaryFastaError>
 where
-    I: Iterator<Item = io::Result<FastaSection>>,
+    I: Iterator<Item = Result<FastaSection, BinaryFastaError>>,
 {
     let file = File::create(file_path)?;
     let mut writer = BufWriter::new(file);

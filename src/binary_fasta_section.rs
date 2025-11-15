@@ -1,6 +1,6 @@
 use itertools::Itertools;
 
-use crate::fasta_section::FastaSection;
+use crate::{errors::BinaryFastaError, fasta_section::FastaSection};
 
 #[derive(Debug, PartialEq)]
 pub struct BinaryFastaSection {
@@ -31,34 +31,50 @@ impl BinaryFastaSection {
         }
     }
 
-    pub fn from_bytes(byte_stream: &mut impl Iterator<Item = u8>) -> BinaryFastaSection {
-        // Recreates BinaryFastaSection from a byte iterator.
-        //
-        // Assumes that the first byte is the start of a valid binary FASTA byte sequence.
+    pub fn from_bytes(
+        byte_stream: &mut impl Iterator<Item = u8>,
+    ) -> Result<BinaryFastaSection, BinaryFastaError> {
+        // Read descriptor length from 1st byte.
+        let descriptor_length = byte_stream.next().ok_or(BinaryFastaError::UnexpectedEof)?;
 
-        // Read descriptor length from first byte.
-        let descriptor_length = byte_stream.next().unwrap();
-        // Next 4 bytes contain a signed 32-bit integer
-        // Magnitude is the sequence length for theSequence descriptor length (and DNA or RNA) from first byte.
-        let sequence_length_bytes: [u8; 4] =
-            byte_stream.take(4).collect::<Vec<u8>>().try_into().unwrap();
-        let sequence_length = i32::from_be_bytes(sequence_length_bytes);
+        // Next 4 bytes contain a signed 32-bit integer.
+        // Sign represents whether the sequence is DNA, and magnitude is the sequence length.
+        let seq_len_vec: Vec<u8> = byte_stream.take(4).collect();
+        if seq_len_vec.len() != 4 {
+            return Err(BinaryFastaError::UnexpectedEof);
+        }
 
-        let descriptor_bytes = byte_stream.take(descriptor_length.into());
-        let descriptor = String::from_utf8(descriptor_bytes.collect()).unwrap();
+        let sequence_length = {
+            let mut arr = [0u8; 4];
+            arr.copy_from_slice(&seq_len_vec); // safe because length == 4
+            i32::from_be_bytes(arr)
+        };
+
+        // Read descriptor bytes
+        let description_vector: Vec<u8> = byte_stream.take(descriptor_length.into()).collect();
+        if description_vector.len() != descriptor_length as usize {
+            return Err(BinaryFastaError::UnexpectedEof);
+        }
+
+        let descriptor = String::from_utf8(description_vector)
+            .map_err(|_| BinaryFastaError::InvalidUtf8Descriptor)?;
+
         // The sequence has 4 nucleotides per byte, so divide by 4, but get 1
         // more byte if the length is not divisible by 4 (there is a final
         // byte that is partially filled with nucleotide data.)
-        let sequence_bytes = (sequence_length / 4) + if sequence_length % 4 != 0 { 1 } else { 0 };
-        let sequence = byte_stream
-            .take(sequence_bytes.try_into().unwrap())
-            .collect();
+        let sequence_bytes: usize =
+            ((sequence_length / 4) + if sequence_length % 4 != 0 { 1 } else { 0 }) as usize;
 
-        BinaryFastaSection {
+        let sequence: Vec<u8> = byte_stream.take(sequence_bytes).collect();
+        if sequence.len() != sequence_bytes {
+            return Err(BinaryFastaError::UnexpectedEof);
+        }
+
+        Ok(BinaryFastaSection {
             descriptor,
             sequence,
             sequence_length,
-        }
+        })
     }
 
     pub fn convert_to_bytes(&self) -> Vec<u8> {
