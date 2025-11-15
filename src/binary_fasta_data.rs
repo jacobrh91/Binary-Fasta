@@ -1,56 +1,53 @@
-use std::fs::{self, File};
+use std::fs::File;
 use std::io::{self, prelude::*, BufWriter};
 use std::path::Path;
 
 use crate::binary_fasta_section::BinaryFastaSection;
-use crate::fasta_data::FastaData;
+use crate::fasta_section::FastaSection;
 
-#[derive(Debug, PartialEq)]
-pub struct BinaryFastaData {
-    pub sections: Vec<BinaryFastaSection>,
+pub fn from_fasta<I>(fasta_data: I) -> impl Iterator<Item = io::Result<BinaryFastaSection>>
+where
+    I: Iterator<Item = io::Result<FastaSection>>,
+{
+    fasta_data.map(|res| res.map(BinaryFastaSection::from_fasta))
 }
 
-impl BinaryFastaData {
-    pub fn from_fasta(fasta_data: FastaData) -> BinaryFastaData {
-        let binary_fasta_section = fasta_data
-            .sections
-            .iter()
-            .map(BinaryFastaSection::from_fasta)
-            .collect();
-        BinaryFastaData {
-            sections: binary_fasta_section,
-        }
+pub fn write<I>(iter: I, file_path: &Path) -> io::Result<()>
+where
+    I: Iterator<Item = io::Result<BinaryFastaSection>>,
+{
+    let mut writer = BufWriter::new(File::create(file_path)?);
+
+    for section in iter {
+        writer.write_all(&section?.convert_to_bytes())?;
     }
 
-    pub fn write(&self, file_path: &Path) -> io::Result<()> {
-        let bytes = self.sections.iter().flat_map(|x| x.convert_to_bytes());
+    writer.flush()
+}
 
-        let file = File::create(file_path)?;
-        let mut writer = BufWriter::new(file);
-        for byte in bytes {
-            writer.write_all(&[byte])?;
+pub fn read(file_path: &Path) -> io::Result<impl Iterator<Item = io::Result<BinaryFastaSection>>> {
+    let file = File::open(file_path)?;
+    let reader = io::BufReader::new(file);
+
+    let mut bytes_iter = reader
+        .bytes()
+        .map(|res| res.expect("I/O error while reading bytes"))
+        .peekable();
+
+    Ok(std::iter::from_fn(move || {
+        if bytes_iter.peek().is_some() {
+            // Consume exactly one section from the byte stream
+            let section = BinaryFastaSection::from_bytes(&mut bytes_iter);
+            Some(Ok(section))
+        } else {
+            None
         }
-        writer.flush()?;
-        Ok(())
-    }
-
-    pub fn read(file_path: &Path) -> io::Result<BinaryFastaData> {
-        let file = fs::read(file_path)?;
-
-        let mut iter = file.into_iter().peekable();
-        let mut sections: Vec<BinaryFastaSection> = Vec::new();
-
-        while iter.peek().is_some() {
-            let new_section = BinaryFastaSection::from_bytes(&mut iter);
-            sections.push(new_section);
-        }
-        Ok(BinaryFastaData { sections })
-    }
+    }))
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::fasta_section::FastaSection;
+    use crate::{binary_fasta_data, fasta_section::FastaSection};
 
     use super::*;
 
@@ -59,36 +56,35 @@ mod tests {
         let descr1 = "test 1";
         let descr2 = "test 2";
 
-        let fasta_data = FastaData {
-            sections: vec![
-                FastaSection {
-                    descriptor: String::from(descr1),
-                    sequence: String::from("AAAACCCCGGGGTTTT"),
-                },
-                FastaSection {
-                    descriptor: String::from(descr2),
-                    sequence: String::from("ACGTCG"),
-                },
-            ],
-        };
+        let fasta_sections = vec![
+            Ok(FastaSection {
+                descriptor: String::from(descr1),
+                sequence: String::from("AAAACCCCGGGGTTTT"),
+            }),
+            Ok(FastaSection {
+                descriptor: String::from(descr2),
+                sequence: String::from("ACGTCG"),
+            }),
+        ]
+        .into_iter();
 
-        let basta_data = BinaryFastaData::from_fasta(fasta_data);
+        let basta_vec: Vec<_> = binary_fasta_data::from_fasta(fasta_sections)
+            .map(Result::unwrap)
+            .collect();
 
-        let expected = BinaryFastaData {
-            sections: vec![
-                BinaryFastaSection {
-                    descriptor: String::from(descr1),
-                    sequence: vec![0b0000_0000, 0b0101_0101, 0b1010_1010, 0b1111_1111],
-                    sequence_length: 16i32,
-                },
-                BinaryFastaSection {
-                    descriptor: String::from(descr2),
-                    sequence: vec![0b0001_1011, 0b0110_0000],
-                    sequence_length: 6i32,
-                },
-            ],
-        };
-        assert_eq!(basta_data, expected);
+        let expected = vec![
+            BinaryFastaSection {
+                descriptor: String::from(descr1),
+                sequence: vec![0b0000_0000, 0b0101_0101, 0b1010_1010, 0b1111_1111],
+                sequence_length: 16i32,
+            },
+            BinaryFastaSection {
+                descriptor: String::from(descr2),
+                sequence: vec![0b0001_1011, 0b0110_0000],
+                sequence_length: 6i32,
+            },
+        ];
+        assert_eq!(expected, basta_vec);
     }
 
     #[test]
@@ -96,34 +92,34 @@ mod tests {
         let descr1 = "test 1";
         let descr2 = "test 2";
 
-        let fasta_data = FastaData {
-            sections: vec![
-                FastaSection {
-                    descriptor: String::from(descr1),
-                    sequence: String::from("AAAACCCCGGGGUUUU"),
-                },
-                FastaSection {
-                    descriptor: String::from(descr2),
-                    sequence: String::from("ACGUCG"),
-                },
-            ],
-        };
+        let fasta_sections = vec![
+            Ok(FastaSection {
+                descriptor: String::from(descr1),
+                sequence: String::from("AAAACCCCGGGGUUUU"),
+            }),
+            Ok(FastaSection {
+                descriptor: String::from(descr2),
+                sequence: String::from("ACGUCG"),
+            }),
+        ]
+        .into_iter();
 
-        let basta_data = BinaryFastaData::from_fasta(fasta_data);
-        let expected = BinaryFastaData {
-            sections: vec![
-                BinaryFastaSection {
-                    descriptor: String::from(descr1),
-                    sequence: vec![0b0000_0000, 0b0101_0101, 0b1010_1010, 0b1111_1111],
-                    sequence_length: -16i32, // Length is negative because sign bit signals DNA (+) or RNA (-)
-                },
-                BinaryFastaSection {
-                    descriptor: String::from(descr2),
-                    sequence: vec![0b0001_1011, 0b0110_0000],
-                    sequence_length: -6i32, // Length is negative because sign bit signals DNA (+) or RNA (-)
-                },
-            ],
-        };
-        assert_eq!(basta_data, expected);
+        let basta_vec: Vec<_> = binary_fasta_data::from_fasta(fasta_sections)
+            .map(Result::unwrap)
+            .collect();
+
+        let expected = vec![
+            BinaryFastaSection {
+                descriptor: String::from(descr1),
+                sequence: vec![0b0000_0000, 0b0101_0101, 0b1010_1010, 0b1111_1111],
+                sequence_length: -16i32, // Length is negative because sign bit signals DNA (+) or RNA (-)
+            },
+            BinaryFastaSection {
+                descriptor: String::from(descr2),
+                sequence: vec![0b0001_1011, 0b0110_0000],
+                sequence_length: -6i32, // Length is negative because sign bit signals DNA (+) or RNA (-)
+            },
+        ];
+        assert_eq!(expected, basta_vec);
     }
 }

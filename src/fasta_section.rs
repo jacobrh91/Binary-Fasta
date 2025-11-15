@@ -20,7 +20,7 @@ impl FastaSection {
         }
     }
 
-    pub fn from_basta(basta_section: &BinaryFastaSection) -> Self {
+    pub fn from_basta(basta_section: BinaryFastaSection) -> Self {
         let char_sequence =
             Self::translate_from_binary(&basta_section.sequence, basta_section.sequence_length);
 

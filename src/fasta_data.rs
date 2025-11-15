@@ -4,76 +4,74 @@ use std::{
     path::Path,
 };
 
-use crate::{binary_fasta_data::BinaryFastaData, fasta_section::FastaSection};
+use crate::{binary_fasta_section::BinaryFastaSection, fasta_section::FastaSection};
 
-#[derive(Debug, PartialEq)]
-pub struct FastaData {
-    pub sections: Vec<FastaSection>,
+pub fn from_basta<I>(binary_fasta_data: I) -> impl Iterator<Item = io::Result<FastaSection>>
+where
+    I: Iterator<Item = io::Result<BinaryFastaSection>>,
+{
+    binary_fasta_data.map(|res| res.map(FastaSection::from_basta))
 }
 
-impl FastaData {
-    pub fn from_basta(binary_fasta_data: BinaryFastaData) -> FastaData {
-        let fasta_section = binary_fasta_data
-            .sections
-            .iter()
-            .map(FastaSection::from_basta)
-            .collect();
-        FastaData {
-            sections: fasta_section,
-        }
-    }
+pub fn read(file_path: &Path) -> io::Result<impl Iterator<Item = io::Result<FastaSection>>> {
+    let file = File::open(file_path)?;
+    let reader = io::BufReader::new(file);
+    let mut lines = reader.lines();
 
-    pub fn read(file_path: &Path) -> io::Result<FastaData> {
-        let file = File::open(file_path)?;
-        let reader = io::BufReader::new(file);
+    let mut description: Option<String> = None;
+    let mut data = String::new();
 
-        let mut fasta_sections: Vec<FastaSection> = Vec::new();
+    Ok(std::iter::from_fn(move || {
+        for line_result in lines.by_ref() {
+            match line_result {
+                Ok(mut line) => {
+                    // lines() strips '\n' but not '\r' from files created on PC
+                    if line.ends_with('\r') {
+                        line.pop();
+                    }
 
-        // Gather data from fasta sections
-        let mut fasta_descriptor: Option<String> = None;
-        let mut fasta_data = String::new();
-
-        for line_result in reader.lines() {
-            let line = line_result?;
-            // If the current line is a descriptor line
-            if line.starts_with(">") {
-                if let Some(descriptor) = fasta_descriptor {
-                    fasta_sections.push(FastaSection::new(&descriptor, &fasta_data));
+                    if line.starts_with('>') {
+                        if let Some(prev) = description.replace(line) {
+                            let section = FastaSection::new(&prev, &data);
+                            data.clear();
+                            return Some(Ok(section));
+                        } else {
+                            data.clear(); // first header encountered
+                        }
+                    } else {
+                        data.push_str(&line);
+                    }
                 }
-                fasta_descriptor = Some(line);
-                fasta_data = String::new();
-            } else {
-                fasta_data.push_str(line.trim_end_matches("\n"));
+                Err(e) => return Some(Err(e)),
             }
         }
-        // After all lines have been iterated through, store the final FASTA section.
-        if let Some(descriptor) = fasta_descriptor {
-            fasta_sections.push(FastaSection::new(&descriptor, &fasta_data));
-        }
-        Ok(FastaData {
-            sections: fasta_sections,
-        })
-    }
 
-    pub fn write(&self, file_path: &Path) -> io::Result<()> {
-        let section_bytes: Vec<Vec<u8>> =
-            self.sections.iter().map(|x| x.convert_to_bytes()).collect();
+        // EOF: flush any pending section
+        description.take().map(|d| Ok(FastaSection::new(&d, &data)))
+    }))
+}
 
-        let file = File::create(file_path)?;
-        let mut writer = BufWriter::new(file);
-        for bytes in section_bytes {
-            writer.write_all(&bytes)?;
-            writer.write_all(b"\n")?;
-        }
-        writer.flush()?;
-        Ok(())
+pub fn write<I>(iter: I, file_path: &Path) -> io::Result<()>
+where
+    I: Iterator<Item = io::Result<FastaSection>>,
+{
+    let file = File::create(file_path)?;
+    let mut writer = BufWriter::new(file);
+
+    for section_res in iter {
+        let section = section_res?;
+        let section_bytes: Vec<u8> = section.convert_to_bytes();
+        writer.write_all(&section_bytes)?;
+        writer.write_all(b"\n")?;
     }
+    // Flush any bytes left in the buffer after the last section is written
+    writer.flush()?;
+    Ok(())
 }
 
 #[cfg(test)]
 mod test {
-    use crate::binary_fasta_data::BinaryFastaData;
-    use crate::binary_fasta_section::BinaryFastaSection;
+    use crate::{binary_fasta_section::BinaryFastaSection, fasta_data};
 
     use super::*;
 
@@ -97,35 +95,34 @@ mod test {
         let descr1 = "test 1";
         let descr2 = "test 2";
 
-        let basta_data = BinaryFastaData {
-            sections: vec![
-                BinaryFastaSection {
-                    descriptor: String::from(descr1),
-                    sequence: vec![0b0000_0000, 0b0101_0101, 0b1010_1010, 0b1111_1111],
-                    sequence_length: -16i32, // Length is negative because sign bit signals DNA (+) or RNA (-)
-                },
-                BinaryFastaSection {
-                    descriptor: String::from(descr2),
-                    sequence: vec![0b0001_1011, 0b0110_0000],
-                    sequence_length: -6i32, // Length is negative because sign bit signals DNA (+) or RNA (-)
-                },
-            ],
-        };
+        let basta_sections = vec![
+            Ok(BinaryFastaSection {
+                descriptor: String::from(descr1),
+                sequence: vec![0b0000_0000, 0b0101_0101, 0b1010_1010, 0b1111_1111],
+                sequence_length: -16i32, // Length is negative because sign bit signals DNA (+) or RNA (-)
+            }),
+            Ok(BinaryFastaSection {
+                descriptor: String::from(descr2),
+                sequence: vec![0b0001_1011, 0b0110_0000],
+                sequence_length: -6i32, // Length is negative because sign bit signals DNA (+) or RNA (-)
+            }),
+        ]
+        .into_iter();
 
-        let fasta_data = FastaData::from_basta(basta_data);
+        let fasta_vec: Vec<_> = fasta_data::from_basta(basta_sections)
+            .map(Result::unwrap)
+            .collect();
 
-        let expected = FastaData {
-            sections: vec![
-                FastaSection {
-                    descriptor: String::from(descr1),
-                    sequence: String::from("AAAACCCCGGGGUUUU"),
-                },
-                FastaSection {
-                    descriptor: String::from(descr2),
-                    sequence: String::from("ACGUCG"),
-                },
-            ],
-        };
-        assert_eq!(fasta_data, expected);
+        let expected = vec![
+            FastaSection {
+                descriptor: String::from(descr1),
+                sequence: String::from("AAAACCCCGGGGUUUU"),
+            },
+            FastaSection {
+                descriptor: String::from(descr2),
+                sequence: String::from("ACGUCG"),
+            },
+        ];
+        assert_eq!(fasta_vec, expected);
     }
 }

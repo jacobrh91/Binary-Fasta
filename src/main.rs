@@ -10,9 +10,17 @@ use std::{error::Error, path::Path};
 use clap::Parser;
 use parser::Args;
 
-use crate::{
-    binary_fasta_data::BinaryFastaData, fasta_data::FastaData, nucleotide_file::NucleotideFile,
-};
+use crate::nucleotide_file::NucleotideFile;
+
+// fn main() {
+//     let a = binary_fasta_data::read(Path::new("data/test_small_dna.basta")).unwrap();
+//     // println!("len {}", a.collect::<Vec<_>>().len());
+//     let b: Vec<binary_fasta_section::BinaryFastaSection> =
+//         a.map(|x| x.unwrap()).collect::<Vec<_>>();
+//     for i in b {
+//         println!("{:?}", i)
+//     }
+// }
 
 fn main() -> Result<(), Box<dyn Error>> {
     let cli = Args::parse();
@@ -31,14 +39,14 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     match input_file.format {
         nucleotide_file::FileFormat::Fasta => {
-            let fasta = FastaData::read(&input_file.file_path)?;
-            let binary = BinaryFastaData::from_fasta(fasta);
-            binary.write(&output_file.file_path)?;
+            let read_fasta_iter = fasta_data::read(&input_file.file_path)?;
+            let binary_iter = binary_fasta_data::from_fasta(read_fasta_iter);
+            binary_fasta_data::write(binary_iter, &output_file.file_path)?;
         }
         nucleotide_file::FileFormat::Basta => {
-            let basta = BinaryFastaData::read(&input_file.file_path)?;
-            let fasta = FastaData::from_basta(basta);
-            fasta.write(&output_file.file_path)?;
+            let read_basta_iter = binary_fasta_data::read(&input_file.file_path)?;
+            let fasta_iter = fasta_data::from_basta(read_basta_iter);
+            fasta_data::write(fasta_iter, &output_file.file_path)?;
         }
     }
     Ok(())

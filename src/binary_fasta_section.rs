@@ -18,14 +18,14 @@ impl BinaryFastaSection {
         u8::try_from(self.descriptor.len()).expect("Descriptor is too long.")
     }
 
-    pub fn from_fasta(fasta_section: &FastaSection) -> Self {
+    pub fn from_fasta(fasta_section: FastaSection) -> Self {
         // The sign bit signals whether the source data was DNA (+) or RNA (-)
         let sign = if fasta_section.is_dna() { 1 } else { -1 };
         let sequence_length = sign
             * i32::try_from(fasta_section.sequence.chars().count()).expect("Sequence is too long.");
 
         BinaryFastaSection {
-            descriptor: fasta_section.descriptor.clone(),
+            descriptor: fasta_section.descriptor,
             sequence: BinaryFastaSection::translate_to_binary(&fasta_section.sequence),
             sequence_length,
         }
@@ -183,6 +183,6 @@ mod tests {
             sequence: vec![0b1111_1111, 0b1010_1010, 0b0101_0000, 0b0000_0101],
             sequence_length: 16i32,
         };
-        assert_eq!(BinaryFastaSection::from_fasta(&fasta_section), expected);
+        assert_eq!(BinaryFastaSection::from_fasta(fasta_section), expected);
     }
 }
