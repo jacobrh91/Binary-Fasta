@@ -4,7 +4,6 @@ Binary Fasta is a utility for compressing nucleotide FASTA files by encoding seq
 
 ## Background
 
-
 ### RNA, DNA, and nucleotides
 
 **DNA** (Deoxyribonucleic Acid) and **RNA** (Ribonucleic Acid) are long biological molecules that store genetic information.
@@ -18,15 +17,13 @@ These bases form the “letters” of genomic sequences.
 
 FASTA is a text-based format for biological sequences. Each entry contains:
 
-* A descriptor line, starting with `>`
-  * Example: 
+* A descriptor line, starting with `>`, such as:
 
-    ```>human chr 1```
+  `>human chr 1`
 
-* A sequence consisting of `A`, `C`, `G`, `T/U`
-  * Example: 
+* A sequence consisting of `A`, `C`, `G`, and `T/U`, for example.  
 
-    ```ACGTACGTACGT...```
+  ```ACGTACGTACGT...```
 
 FASTA is human-readable but inefficient for large genomes because every nucleotide is stored as a full 1-byte ASCII character.
 
@@ -96,7 +93,6 @@ Which writes a binary fasta file to
 #### (Optionally) pass in the output path explicitly
 
 ```./binary_fasta --input /path/to/my_file.fasta --output /path/to/other.basta```
-
 ### Convert BASTA to FASTA
 
 #### Have the program infer the output path from the input: 
@@ -138,19 +134,20 @@ https://hgdownload.gi.ucsc.edu/goldenPath/hs1/bigZips/)
 
 | Format                | Size     | Ratio vs FASTA | Space Saved | Bits / nt |
 | --------------------- | -------- | -------------- | ----------- | --------- |
-| **FASTA**             | 3.180 GB | 1.00×          | —           | 8.00      |
+| **FASTA**             | 3.180 GB | 1.00×          | —           | 8      |
 | **FASTA.gz**          | 974.8 MB | 3.26×          | 69.4%       | ~2.45     |
-| **BA (Binary FASTA)** | 779.3 MB | 4.08×          | 75.5%       | 2.00      |
-| **BA.gz**             | 698.2 MB | 4.55×          | 78.0%       | ~1.79     |
+| **BASTA** | 779.3 MB | 4.08×          | 75.5%       | 2      |
+| **BASTA.gz**             | 698.2 MB | 4.55×          | 78.0%       | ~1.79     |
 
-#### Why does .basta sometimes exceed a 4× ratio?
+#### How can the BASTA exceed a 4× compression ratio?
 
-You might expect exactly a 4× improvement (8 bits → 2 bits). But .basta performed slightly better.
+You might expect exactly a 4× improvement (from 8 to 2 bits). But BASTA performed slightly better.
+
 Reasons:
 
-The dataset contains only a tiny number of FASTA headers compared to billions of bases: Headers are negligible.
+* The dataset contains only a tiny number of FASTA headers compared to billions of bases: Headers are negligible.
 
-FASTA stores sequences with newlines every 50 characters.
-Removing these newlines eliminates millions of characters (~1% of total size).
+* FASTA stores sequences with newlines every 50 characters.
+In a large file with long sequences, removing these newlines eliminates a significant amount of data.
 
-Therefore, the .basta file can exceed the naïve 4× limit.
+Therefore, the BASTA file can exceed the naive 4× limit.
