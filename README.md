@@ -85,7 +85,7 @@ Options:
   -V, --version                  Print version
 ```
 
-### To convert a FASTA file to BASTA
+### Convert FASTA to BASTA
 
 #### Have the program infer the output path from the input: 
 ```./binary_fasta --input /path/to/my_file.fasta```
@@ -96,7 +96,19 @@ Which writes a binary fasta file to
 #### (Optionally) pass in the output path explicitly
 
 ```./binary_fasta --input /path/to/my_file.fasta --output /path/to/other.basta```
- 
+
+### Convert BASTA to FASTA
+
+#### Have the program infer the output path from the input: 
+```./binary_fasta --input /path/to/my_file.basta```
+
+Which writes a regular fasta file to 
+```/path/to/my_file.fasta```.
+
+#### (Optionally) pass in the output path explicitly
+
+```./binary_fasta --input /path/to/my_file.bfasta --output /path/to/other.fasta```
+
 ## Appendix
 
 ### Implementation details
@@ -109,7 +121,6 @@ Which writes a binary fasta file to
 | Sequence length   | 4 bytes  | Number of nucleotides in the sequence (sign bit encodes DNA vs RNA) |
 | Descriptor        | Variable | UTF-8-encoded sequence description (e.g., FASTA header)             |
 | Encoded sequence  | Variable | Sequence encoded at 2 bits per nucleotide                           |
-
 
 This pattern repeats for all sequences in the FASTA file.
 
@@ -132,7 +143,7 @@ https://hgdownload.gi.ucsc.edu/goldenPath/hs1/bigZips/)
 | **BA (Binary FASTA)** | 779.3 MB | 4.08×          | 75.5%       | 2.00      |
 | **BA.gz**             | 698.2 MB | 4.55×          | 78.0%       | ~1.79     |
 
-### Why does .basta sometimes exceed a 4× ratio?
+#### Why does .basta sometimes exceed a 4× ratio?
 
 You might expect exactly a 4× improvement (8 bits → 2 bits). But .basta performed slightly better.
 Reasons:
