@@ -13,6 +13,6 @@ fn parse_input(s: &str) -> Result<String, String> {
 pub struct Args {
     #[arg(short = 'i', long="input", required=true, value_parser = parse_input, value_name = "file to convert")]
     pub input: String,
-    #[arg(value_name = "output")]
+    #[arg(value_name = "output (optional)")]
     pub output: Option<String>,
 }
