@@ -73,11 +73,13 @@ cp target/release/binary .
 ```
 
 ```
-Arguments:
-  [output (optional)]  
+Binary FASTA encoder/decoder
+
+Usage: binary_fasta [OPTIONS] --input <file to convert>
 
 Options:
   -i, --input <file to convert>  
+  -o, --output <output file>     
   -h, --help                     Print help
   -V, --version                  Print version
 ```
