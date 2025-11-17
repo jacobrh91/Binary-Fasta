@@ -1,6 +1,6 @@
 use std::{
     fs::File,
-    io::{self, BufRead, BufWriter, Write},
+    io::{self, BufRead, BufWriter, Read, Write},
     path::Path,
 };
 
@@ -21,6 +21,8 @@ where
 pub fn read(
     file_path: &Path,
 ) -> Result<impl Iterator<Item = Result<FastaSection, BinaryFastaError>>, BinaryFastaError> {
+    validate_fasta(file_path)?;
+
     let file = File::open(file_path)?;
     let reader = io::BufReader::new(file);
     let mut lines = reader.lines();
@@ -59,6 +61,24 @@ pub fn read(
         // EOF: flush any pending section
         description.take().map(|d| Ok(FastaSection::new(&d, &data)))
     }))
+}
+
+fn validate_fasta(file_path: &Path) -> Result<(), BinaryFastaError> {
+    {
+        let mut f = File::open(file_path)?;
+        let mut first = [0u8; 1];
+
+        let n = f.read(&mut first)?;
+        if n == 0 {
+            return Err(BinaryFastaError::UnexpectedEof);
+        }
+        if first[0] != b'>' {
+            return Err(BinaryFastaError::MalformedFastaHeader {
+                path: file_path.to_path_buf(),
+            });
+        }
+        Ok(())
+    }
 }
 
 pub fn write<I>(iter: I, file_path: &Path) -> Result<(), BinaryFastaError>

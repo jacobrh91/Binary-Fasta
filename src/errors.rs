@@ -9,6 +9,7 @@ pub enum BinaryFastaError {
     InvalidUtf8Descriptor,
     Io(io::Error), // Wraps general IO errors
     InvalidFileExtension { path: PathBuf },
+    MalformedFastaHeader { path: PathBuf },
 }
 
 impl fmt::Display for BinaryFastaError {
@@ -24,6 +25,13 @@ impl fmt::Display for BinaryFastaError {
                 "expected a FASTA (.fa/.fasta) or BASTA (.ba/.basta) file, but found '{}'.",
                 path.display()
             ),
+            BinaryFastaError::MalformedFastaHeader { path } => {
+                write!(
+                    f,
+                    "FASTA file must start with '>' header. '{}' has a malformed header.",
+                    path.display()
+                )
+            }
         }
     }
 }
@@ -37,7 +45,7 @@ impl Error for BinaryFastaError {
     }
 }
 
-// Also io::Error to be converted into a BinaryFastaError
+// Allows io::Error to be converted into a BinaryFastaError
 impl From<io::Error> for BinaryFastaError {
     fn from(e: io::Error) -> Self {
         BinaryFastaError::Io(e)
