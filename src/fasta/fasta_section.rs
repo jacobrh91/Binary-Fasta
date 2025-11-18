@@ -49,9 +49,10 @@ impl FastaSection {
 
         // Whether the sequence was DNA or RNA is encoded in the sign of the i32 length.
         let is_dna: bool = length >= 0;
+        println!("is_dna: {}; len: {}", is_dna, length);
 
         // Make it a positive number for arithmetic later in this function.
-        let positive_length = if length < 0 { -length } else { length };
+        let positive_length = if is_dna { length } else { -length };
 
         for byte in bytes {
             let is_bit_set = |idx| Self::is_bit_set(byte, idx);

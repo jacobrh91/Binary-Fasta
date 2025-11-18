@@ -44,6 +44,7 @@ impl BinaryFastaSection {
             return Err(BinaryFastaError::UnexpectedEof);
         }
 
+        // This value is positive if the sequence is DNA, negative if it is RNA.
         let sequence_length = {
             let mut arr = [0u8; 4];
             arr.copy_from_slice(&seq_len_vec); // safe because length == 4
@@ -59,11 +60,15 @@ impl BinaryFastaSection {
         let descriptor = String::from_utf8(description_vector)
             .map_err(|_| BinaryFastaError::InvalidUtf8Descriptor)?;
 
+        // The binary sequence length is stored as a negative value if the sequence is RNA.
+        // Get the absolute value for the "sequence_bytes" logic ahead.
+        let positive_length = sequence_length.abs();
+
         // The sequence has 4 nucleotides per byte, so divide by 4, but get 1
         // more byte if the length is not divisible by 4 (there is a final
         // byte that is partially filled with nucleotide data.)
         let sequence_bytes: usize =
-            ((sequence_length / 4) + if sequence_length % 4 != 0 { 1 } else { 0 }) as usize;
+            ((positive_length / 4) + if positive_length % 4 != 0 { 1 } else { 0 }) as usize;
 
         let sequence: Vec<u8> = byte_stream.take(sequence_bytes).collect();
         if sequence.len() != sequence_bytes {
